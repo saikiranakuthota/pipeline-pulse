@@ -1,0 +1,1014 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Pipeline Pulse — AWS Data Engineering Dashboard</title>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+:root {
+  --bg: #0a0d12;
+  --bg2: #0f1319;
+  --bg3: #141922;
+  --bg4: #1a2030;
+  --surface: #1e2638;
+  --border: rgba(255,255,255,0.06);
+  --border2: rgba(255,255,255,0.10);
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --dim: #334155;
+  --blue: #3b82f6;
+  --blue2: #1d4ed8;
+  --cyan: #06b6d4;
+  --green: #10b981;
+  --amber: #f59e0b;
+  --red: #ef4444;
+  --purple: #8b5cf6;
+  --orange: #f97316;
+  --font: 'Inter', sans-serif;
+  --mono: 'JetBrains Mono', monospace;
+}
+body.light {
+  --bg: #f1f5f9;
+  --bg2: #ffffff;
+  --bg3: #f8fafc;
+  --bg4: #e2e8f0;
+  --surface: #cbd5e1;
+  --border: rgba(0,0,0,0.07);
+  --border2: rgba(0,0,0,0.13);
+  --text: #0f172a;
+  --muted: #64748b;
+  --dim: #94a3b8;
+  --blue: #2563eb;
+  --cyan: #0891b2;
+  --green: #059669;
+  --amber: #d97706;
+  --red: #dc2626;
+  --purple: #7c3aed;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:var(--font);background:var(--bg);color:var(--text);min-height:100vh;font-size:14px;line-height:1.5}
+button{cursor:pointer;font-family:var(--font);border:none;background:none}
+
+/* TOPBAR */
+.topbar {
+  background:var(--bg2);
+  border-bottom:1px solid var(--border2);
+  padding:0 1.5rem;
+  height:52px;
+  display:flex;
+  align-items:center;
+  gap:1rem;
+  position:sticky;
+  top:0;
+  z-index:100;
+}
+.logo {
+  display:flex;
+  align-items:center;
+  gap:.55rem;
+  font-weight:700;
+  font-size:.95rem;
+  letter-spacing:-.02em;
+  color:var(--text);
+  text-decoration:none;
+}
+.logo-dot {
+  width:8px;height:8px;
+  border-radius:50%;
+  background:var(--green);
+  box-shadow:0 0 8px var(--green);
+  animation:pulse-dot 2s infinite;
+}
+@keyframes pulse-dot {
+  0%,100%{box-shadow:0 0 6px var(--green)}
+  50%{box-shadow:0 0 14px var(--green),0 0 24px rgba(16,185,129,.3)}
+}
+.logo span{color:var(--muted);font-weight:400}
+.tb-spacer{flex:1}
+.live-badge {
+  display:flex;align-items:center;gap:.38rem;
+  font-size:.73rem;font-weight:600;letter-spacing:.05em;
+  color:var(--green);
+  background:rgba(16,185,129,.1);
+  border:1px solid rgba(16,185,129,.2);
+  border-radius:999px;
+  padding:.25rem .7rem;
+}
+.live-dot{width:6px;height:6px;border-radius:50%;background:var(--green);animation:pulse-dot 1.5s infinite}
+.env-select {
+  background:var(--bg3);
+  border:1px solid var(--border2);
+  color:var(--text);
+  font-family:var(--font);
+  font-size:.78rem;
+  border-radius:6px;
+  padding:.3rem .6rem;
+  cursor:pointer;
+}
+.theme-btn {
+  width:32px;height:32px;
+  border-radius:6px;
+  border:1px solid var(--border2);
+  background:var(--bg3);
+  color:var(--muted);
+  font-size:.95rem;
+  display:flex;align-items:center;justify-content:center;
+  transition:all .15s;
+}
+.theme-btn:hover{color:var(--text);background:var(--bg4)}
+
+/* LAYOUT */
+.layout {
+  display:grid;
+  grid-template-columns:200px 1fr;
+  min-height:calc(100vh - 52px);
+}
+.sidebar {
+  background:var(--bg2);
+  border-right:1px solid var(--border);
+  padding:1rem 0;
+  position:sticky;
+  top:52px;
+  height:calc(100vh - 52px);
+  overflow-y:auto;
+}
+.sb-section{padding:.25rem .75rem;margin-bottom:.25rem}
+.sb-label{font-size:.65rem;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--dim);padding:.5rem .75rem .3rem}
+.sb-btn {
+  width:100%;text-align:left;
+  display:flex;align-items:center;gap:.55rem;
+  padding:.48rem .75rem;
+  border-radius:6px;
+  font-size:.8rem;font-weight:500;
+  color:var(--muted);
+  transition:all .15s;
+  cursor:pointer;
+}
+.sb-btn:hover{color:var(--text);background:var(--bg3)}
+.sb-btn.active{color:var(--blue);background:rgba(59,130,246,.1)}
+.sb-icon{width:16px;height:16px;display:flex;align-items:center;justify-content:center;font-size:.82rem;flex-shrink:0}
+
+/* MAIN */
+.main{padding:1.5rem;display:flex;flex-direction:column;gap:1.25rem;overflow-x:hidden}
+.page{display:none}.page.active{display:flex;flex-direction:column;gap:1.25rem}
+
+/* SECTION HEADER */
+.sec-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:0}
+.sec-title{font-size:1rem;font-weight:600;letter-spacing:-.01em}
+.sec-sub{font-size:.75rem;color:var(--muted);margin-top:.1rem}
+.sec-actions{display:flex;gap:.5rem;align-items:center}
+.btn-sm{
+  font-size:.75rem;font-weight:500;
+  padding:.32rem .72rem;
+  border-radius:5px;
+  border:1px solid var(--border2);
+  background:var(--bg3);
+  color:var(--muted);
+  transition:all .15s;
+}
+.btn-sm:hover{color:var(--text);border-color:var(--border2)}
+.btn-primary{background:var(--blue);color:#fff;border-color:var(--blue)}
+.btn-primary:hover{opacity:.9}
+
+/* METRIC CARDS */
+.metrics-row{display:grid;grid-template-columns:repeat(4,1fr);gap:.85rem}
+.metric-card {
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:1rem 1.1rem;
+  position:relative;
+  overflow:hidden;
+  transition:border-color .2s;
+}
+.metric-card:hover{border-color:var(--border2)}
+.mc-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:.7rem}
+.mc-label{font-size:.72rem;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.mc-icon{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:.85rem}
+.mc-val{font-size:1.7rem;font-weight:700;letter-spacing:-.03em;line-height:1;margin-bottom:.35rem;font-variant-numeric:tabular-nums}
+.mc-footer{display:flex;align-items:center;gap:.4rem;font-size:.72rem}
+.mc-trend-up{color:var(--green)}.mc-trend-dn{color:var(--red)}.mc-trend-neu{color:var(--muted)}
+.mc-bar{position:absolute;bottom:0;left:0;right:0;height:2px}
+
+/* PIPELINE FLOW */
+.pipeline-flow {
+  background:var(--bg2);
+  border:1px solid var(--border);
+  border-radius:10px;
+  padding:1.25rem;
+}
+.flow-title{font-size:.82rem;font-weight:600;margin-bottom:1.1rem;display:flex;align-items:center;gap:.5rem}
+.flow-wrap{display:flex;align-items:center;gap:.5rem;overflow-x:auto;padding-bottom:.25rem}
+.flow-stage {
+  display:flex;flex-direction:column;align-items:center;gap:.5rem;
+  min-width:90px;
+  flex-shrink:0;
+}
+.stage-box {
+  width:72px;height:72px;
+  border-radius:10px;
+  border:1.5px solid var(--border2);
+  background:var(--bg3);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:.22rem;
+  cursor:default;
+  transition:all .2s;
+  position:relative;
+}
+.stage-box.ok{border-color:rgba(16,185,129,.35);background:rgba(16,185,129,.05)}
+.stage-box.warn{border-color:rgba(245,158,11,.35);background:rgba(245,158,11,.05)}
+.stage-box.err{border-color:rgba(239,68,68,.35);background:rgba(239,68,68,.05)}
+.stage-box.run{border-color:rgba(59,130,246,.35);background:rgba(59,130,246,.05)}
+.stage-emoji{font-size:1.35rem}
+.stage-name{font-size:.62rem;font-weight:600;color:var(--muted);text-align:center;line-height:1.2}
+.stage-label{font-size:.68rem;font-weight:600;color:var(--text);text-align:center}
+.stage-val{font-size:.62rem;color:var(--muted);font-family:var(--mono)}
+.flow-arrow{display:flex;flex-direction:column;align-items:center;gap:2px;flex-shrink:0}
+.arrow-line{height:2px;width:28px;background:linear-gradient(to right, var(--border2), var(--blue));position:relative;border-radius:2px;overflow:hidden}
+.arrow-particle{position:absolute;top:-1px;width:6px;height:4px;border-radius:2px;background:var(--blue);animation:flow-particle 1.8s linear infinite;opacity:.8}
+@keyframes flow-particle{from{left:-8px}to{left:100%}}
+.arrow-head{font-size:.7rem;color:var(--blue);margin-top:-2px}
+.arrow-rate{font-size:.6rem;color:var(--muted);font-family:var(--mono)}
+.status-dot{
+  position:absolute;top:4px;right:4px;
+  width:7px;height:7px;border-radius:50%;
+}
+.dot-ok{background:var(--green)}.dot-warn{background:var(--amber)}.dot-err{background:var(--red)}
+.dot-run{background:var(--blue);animation:pulse-dot 1.2s infinite}
+
+/* 2-COL GRID */
+.two-col{display:grid;grid-template-columns:1fr 1fr;gap:.85rem}
+.three-col{display:grid;grid-template-columns:1fr 1fr 1fr;gap:.85rem}
+
+/* CARD */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:1.1rem}
+.card-title{font-size:.8rem;font-weight:600;margin-bottom:.9rem;display:flex;align-items:center;justify-content:space-between}
+.card-badge{font-size:.65rem;font-weight:700;padding:.18rem .5rem;border-radius:4px;letter-spacing:.04em}
+
+/* TABLES */
+.data-table{width:100%;border-collapse:collapse}
+.data-table th{font-size:.67rem;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:.5rem .7rem;border-bottom:1px solid var(--border);text-align:left}
+.data-table td{font-size:.78rem;padding:.58rem .7rem;border-bottom:1px solid var(--border);color:var(--text);vertical-align:middle}
+.data-table tr:last-child td{border-bottom:none}
+.data-table tr:hover td{background:var(--bg3)}
+
+/* STATUS PILLS */
+.pill{display:inline-flex;align-items:center;gap:.3rem;font-size:.67rem;font-weight:700;letter-spacing:.04em;padding:.2rem .52rem;border-radius:4px}
+.pill-ok{background:rgba(16,185,129,.12);color:var(--green)}
+.pill-warn{background:rgba(245,158,11,.12);color:var(--amber)}
+.pill-err{background:rgba(239,68,68,.12);color:var(--red)}
+.pill-run{background:rgba(59,130,246,.12);color:var(--blue)}
+.pill-off{background:rgba(100,116,139,.12);color:var(--muted)}
+.pill::before{content:'';width:5px;height:5px;border-radius:50%;background:currentColor}
+
+/* PROGRESS BARS */
+.prog-wrap{margin-bottom:.65rem}
+.prog-header{display:flex;justify-content:space-between;font-size:.73rem;margin-bottom:.28rem}
+.prog-bar{height:5px;background:var(--bg4);border-radius:3px;overflow:hidden}
+.prog-fill{height:100%;border-radius:3px;transition:width 1s ease}
+
+/* WLM QUEUES */
+.wlm-queue{background:var(--bg3);border:1px solid var(--border);border-radius:8px;padding:.8rem;margin-bottom:.6rem}
+.wlm-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:.55rem}
+.wlm-name{font-size:.78rem;font-weight:600}
+.wlm-stats{display:flex;gap:.7rem}
+.wlm-stat{font-size:.7rem;color:var(--muted)}
+.wlm-stat b{color:var(--text);font-weight:600}
+
+/* LOG */
+.log-entry{display:flex;gap:.65rem;align-items:flex-start;padding:.45rem 0;border-bottom:1px solid var(--border);font-family:var(--mono);font-size:.72rem}
+.log-entry:last-child{border-bottom:none}
+.log-time{color:var(--dim);flex-shrink:0;min-width:60px}
+.log-level{flex-shrink:0;width:42px;font-weight:600}
+.log-info{color:var(--cyan)}.log-warn{color:var(--amber)}.log-err{color:var(--red)}.log-ok{color:var(--green)}
+.log-msg{color:var(--muted);flex:1;line-height:1.4}
+.log-msg b{color:var(--text);font-weight:500}
+
+/* DAG STATUS */
+.dag-row{display:flex;align-items:center;gap:.65rem;padding:.55rem 0;border-bottom:1px solid var(--border)}
+.dag-row:last-child{border-bottom:none}
+.dag-name{font-size:.8rem;font-weight:500;flex:1;font-family:var(--mono)}
+.dag-runs{display:flex;gap:3px}
+.run-box{width:12px;height:20px;border-radius:2px}
+.run-ok{background:var(--green)}.run-err{background:var(--red)}.run-warn{background:var(--amber)}.run-skip{background:var(--dim)}
+.dag-dur{font-size:.7rem;font-family:var(--mono);color:var(--muted);min-width:40px;text-align:right}
+
+/* CHARTS */
+.chart-wrap{position:relative;width:100%}
+
+/* QUALITY METER */
+.quality-ring-wrap{display:flex;flex-direction:column;align-items:center;gap:.5rem;padding:.5rem 0}
+.q-score{font-size:2.2rem;font-weight:700;line-height:1}
+.q-label{font-size:.72rem;color:var(--muted)}
+.q-checks{display:flex;flex-direction:column;gap:.4rem;width:100%;margin-top:.5rem}
+.q-check{display:flex;align-items:center;justify-content:space-between;font-size:.74rem}
+.q-check-name{color:var(--muted)}
+.q-check-val{font-weight:600;font-family:var(--mono)}
+
+/* RESPONSIVE */
+@media(max-width:900px){
+  .layout{grid-template-columns:1fr}
+  .sidebar{display:none}
+  .metrics-row{grid-template-columns:1fr 1fr}
+  .two-col,.three-col{grid-template-columns:1fr}
+}
+@media(max-width:560px){
+  .metrics-row{grid-template-columns:1fr}
+}
+
+/* SCROLLBAR */
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:transparent}
+::-webkit-scrollbar-thumb{background:var(--surface);border-radius:2px}
+</style>
+</head>
+<body>
+
+<!-- TOPBAR -->
+<header class="topbar">
+  <div class="logo">
+    <span class="logo-dot"></span>
+    Pipeline<span>Pulse</span>
+  </div>
+  <div style="display:flex;align-items:center;gap:.4rem;font-size:.78rem;color:var(--muted)">
+    <span style="color:var(--dim)">▸</span>
+    <span id="env-label" style="color:var(--text);font-weight:500">production</span>
+  </div>
+  <div class="tb-spacer"></div>
+  <div class="live-badge"><span class="live-dot"></span>LIVE</div>
+  <select class="env-select" onchange="switchEnv(this.value)">
+    <option value="prod">Production</option>
+    <option value="staging">Staging</option>
+    <option value="dev">Dev</option>
+  </select>
+  <button class="theme-btn" onclick="toggleTheme()" id="themeBtn" title="Toggle theme">☀</button>
+  <div style="font-size:.72rem;color:var(--dim);font-family:var(--mono)" id="clock">--:--:--</div>
+</header>
+
+<div class="layout">
+
+<!-- SIDEBAR -->
+<nav class="sidebar">
+  <div class="sb-label">Overview</div>
+  <button class="sb-btn active" onclick="showPage('overview',this)"><span class="sb-icon">⬡</span>Dashboard</button>
+  <button class="sb-btn" onclick="showPage('pipelines',this)"><span class="sb-icon">⚡</span>Pipelines</button>
+  <button class="sb-btn" onclick="showPage('quality',this)"><span class="sb-icon">◎</span>Data Quality</button>
+
+  <div class="sb-label">Infrastructure</div>
+  <button class="sb-btn" onclick="showPage('redshift',this)"><span class="sb-icon">▦</span>Redshift</button>
+  <button class="sb-btn" onclick="showPage('airflow',this)"><span class="sb-icon">◈</span>Airflow DAGs</button>
+  <button class="sb-btn" onclick="showPage('logs',this)"><span class="sb-icon">≡</span>Logs</button>
+
+  <div class="sb-label">Account</div>
+  <button class="sb-btn" onclick="showPage('costs',this)"><span class="sb-icon">$</span>Cost Monitor</button>
+
+  <div style="padding:1rem .75rem;margin-top:auto">
+    <div style="background:rgba(16,185,129,.06);border:1px solid rgba(16,185,129,.15);border-radius:8px;padding:.7rem;font-size:.72rem">
+      <div style="color:var(--green);font-weight:600;margin-bottom:.3rem">▲ All Systems OK</div>
+      <div style="color:var(--muted)">Last incident: 12 days ago</div>
+    </div>
+  </div>
+</nav>
+
+<!-- MAIN CONTENT -->
+<main class="main">
+
+  <!-- ═══ OVERVIEW PAGE ═══ -->
+  <div class="page active" id="page-overview">
+
+    <div class="sec-header">
+      <div>
+        <div class="sec-title">Pipeline Dashboard</div>
+        <div class="sec-sub">Real-time monitoring · AWS us-east-1 · Updated <span id="last-update">just now</span></div>
+      </div>
+      <div class="sec-actions">
+        <button class="btn-sm" onclick="refreshAll()">↺ Refresh</button>
+        <button class="btn-sm btn-primary">+ New Pipeline</button>
+      </div>
+    </div>
+
+    <!-- METRICS ROW -->
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="mc-bar" style="background:linear-gradient(to right,var(--blue),var(--cyan))"></div>
+        <div class="mc-top">
+          <div class="mc-label">Records / sec</div>
+          <div class="mc-icon" style="background:rgba(59,130,246,.1);color:var(--blue)">⚡</div>
+        </div>
+        <div class="mc-val" id="m-rps" style="color:var(--blue)">6,284</div>
+        <div class="mc-footer"><span class="mc-trend-up">▲ 4.2%</span><span class="mc-trend-neu">vs last hour</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-bar" style="background:linear-gradient(to right,var(--green),rgba(16,185,129,.3))"></div>
+        <div class="mc-top">
+          <div class="mc-label">Data Quality</div>
+          <div class="mc-icon" style="background:rgba(16,185,129,.1);color:var(--green)">✓</div>
+        </div>
+        <div class="mc-val" id="m-quality" style="color:var(--green)">99.4%</div>
+        <div class="mc-footer"><span class="mc-trend-up">▲ 0.1%</span><span class="mc-trend-neu">7-day avg</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-bar" style="background:linear-gradient(to right,var(--amber),rgba(245,158,11,.3))"></div>
+        <div class="mc-top">
+          <div class="mc-label">Avg Latency</div>
+          <div class="mc-icon" style="background:rgba(245,158,11,.1);color:var(--amber)">◷</div>
+        </div>
+        <div class="mc-val" id="m-latency" style="color:var(--amber)">2.8s</div>
+        <div class="mc-footer"><span class="mc-trend-up">▼ 31%</span><span class="mc-trend-neu">vs baseline</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-bar" style="background:linear-gradient(to right,var(--purple),rgba(139,92,246,.3))"></div>
+        <div class="mc-top">
+          <div class="mc-label">Pipeline SLA</div>
+          <div class="mc-icon" style="background:rgba(139,92,246,.1);color:var(--purple)">◉</div>
+        </div>
+        <div class="mc-val" id="m-sla" style="color:var(--purple)">99.8%</div>
+        <div class="mc-footer"><span class="mc-trend-neu">3 pipelines · </span><span class="mc-trend-up">all healthy</span></div>
+      </div>
+    </div>
+
+    <!-- PIPELINE FLOW -->
+    <div class="pipeline-flow">
+      <div class="flow-title">
+        <span style="color:var(--blue)">⬡</span>
+        Live Data Flow — Production
+        <span class="pill pill-ok" style="margin-left:auto">Running</span>
+      </div>
+      <div class="flow-wrap">
+        <!-- REST APIs -->
+        <div class="flow-stage">
+          <div class="stage-box ok">
+            <span class="status-dot dot-ok"></span>
+            <span class="stage-emoji">🌐</span>
+            <span class="stage-name">REST<br>APIs</span>
+          </div>
+          <div class="stage-val" id="src-rps">1.2k/s</div>
+        </div>
+
+        <div class="flow-arrow">
+          <div class="arrow-line"><div class="arrow-particle" style="animation-delay:0s"></div></div>
+          <div class="arrow-head">▶</div>
+          <div class="arrow-rate">ingest</div>
+        </div>
+
+        <!-- S3 -->
+        <div class="flow-stage">
+          <div class="stage-box ok">
+            <span class="status-dot dot-ok"></span>
+            <span class="stage-emoji">🪣</span>
+            <span class="stage-name">Amazon<br>S3</span>
+          </div>
+          <div class="stage-val" id="s3-val">4.7 TB</div>
+        </div>
+
+        <div class="flow-arrow">
+          <div class="arrow-line"><div class="arrow-particle" style="animation-delay:.4s"></div></div>
+          <div class="arrow-head">▶</div>
+          <div class="arrow-rate">trigger</div>
+        </div>
+
+        <!-- Glue -->
+        <div class="flow-stage">
+          <div class="stage-box run">
+            <span class="status-dot dot-run"></span>
+            <span class="stage-emoji">⚙️</span>
+            <span class="stage-name">AWS<br>Glue</span>
+          </div>
+          <div class="stage-val" id="glue-val">3 jobs</div>
+        </div>
+
+        <div class="flow-arrow">
+          <div class="arrow-line"><div class="arrow-particle" style="animation-delay:.8s"></div></div>
+          <div class="arrow-head">▶</div>
+          <div class="arrow-rate">ETL</div>
+        </div>
+
+        <!-- Delta Lake -->
+        <div class="flow-stage">
+          <div class="stage-box ok">
+            <span class="status-dot dot-ok"></span>
+            <span class="stage-emoji">△</span>
+            <span class="stage-name">Delta<br>Lake</span>
+          </div>
+          <div class="stage-val">ACID ✓</div>
+        </div>
+
+        <div class="flow-arrow">
+          <div class="arrow-line"><div class="arrow-particle" style="animation-delay:1.2s"></div></div>
+          <div class="arrow-head">▶</div>
+          <div class="arrow-rate">load</div>
+        </div>
+
+        <!-- Redshift -->
+        <div class="flow-stage">
+          <div class="stage-box ok">
+            <span class="status-dot dot-ok"></span>
+            <span class="stage-emoji">🔴</span>
+            <span class="stage-name">Redshift<br>DW</span>
+          </div>
+          <div class="stage-val" id="rs-val">8.2 TB</div>
+        </div>
+
+        <div class="flow-arrow">
+          <div class="arrow-line"><div class="arrow-particle" style="animation-delay:1.6s"></div></div>
+          <div class="arrow-head">▶</div>
+          <div class="arrow-rate">serve</div>
+        </div>
+
+        <!-- Power BI -->
+        <div class="flow-stage">
+          <div class="stage-box ok">
+            <span class="status-dot dot-ok"></span>
+            <span class="stage-emoji">📊</span>
+            <span class="stage-name">Power<br>BI</span>
+          </div>
+          <div class="stage-val">10 dashboards</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- CHARTS ROW -->
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Throughput — 24h <span class="card-badge pill-ok pill">Healthy</span></div>
+        <div class="chart-wrap" style="height:160px"><canvas id="throughputChart" role="img" aria-label="24-hour throughput chart showing records per second"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Pipeline Runs — 7d <span class="card-badge" style="font-size:.65rem;color:var(--muted)">success / fail</span></div>
+        <div class="chart-wrap" style="height:160px"><canvas id="runsChart" role="img" aria-label="7-day pipeline run history showing success and failure counts"></canvas></div>
+      </div>
+    </div>
+
+    <!-- JOBS TABLE -->
+    <div class="card">
+      <div class="card-title">Active Glue Jobs <span style="font-size:.72rem;color:var(--muted);font-weight:400">3 running · 1 queued</span></div>
+      <table class="data-table">
+        <thead><tr>
+          <th>Job Name</th><th>Status</th><th>Duration</th><th>DPUs</th><th>Records</th><th>Source → Target</th><th>Last Run</th>
+        </tr></thead>
+        <tbody id="jobs-tbody">
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══ PIPELINES PAGE ═══ -->
+  <div class="page" id="page-pipelines">
+    <div class="sec-header">
+      <div><div class="sec-title">Pipeline Registry</div><div class="sec-sub">All ETL/ELT workflows · production</div></div>
+    </div>
+    <div class="card">
+      <table class="data-table">
+        <thead><tr><th>Pipeline</th><th>Type</th><th>Schedule</th><th>Status</th><th>Avg Duration</th><th>SLA</th><th>Last Success</th></tr></thead>
+        <tbody id="pipelines-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══ DATA QUALITY PAGE ═══ -->
+  <div class="page" id="page-quality">
+    <div class="sec-header"><div><div class="sec-title">Data Quality</div><div class="sec-sub">Validation rules · accuracy · completeness</div></div></div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Overall Score</div>
+        <div class="quality-ring-wrap">
+          <div class="q-score" style="color:var(--green)" id="quality-big">99.4%</div>
+          <div class="q-label">across 6 datasets</div>
+          <div class="q-checks" id="q-checks"></div>
+        </div>
+      </div>
+      <div class="card">
+        <div class="card-title">Quality Trend — 14d</div>
+        <div class="chart-wrap" style="height:180px"><canvas id="qualityChart" role="img" aria-label="14-day data quality trend"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Validation Rules</div>
+      <table class="data-table">
+        <thead><tr><th>Rule</th><th>Dataset</th><th>Type</th><th>Pass Rate</th><th>Failures</th><th>Status</th></tr></thead>
+        <tbody id="rules-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══ REDSHIFT PAGE ═══ -->
+  <div class="page" id="page-redshift">
+    <div class="sec-header"><div><div class="sec-title">Redshift Cluster</div><div class="sec-sub">ra3.4xlarge · 4 nodes · us-east-1</div></div></div>
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="mc-bar" style="background:linear-gradient(to right,var(--blue),var(--cyan))"></div>
+        <div class="mc-top"><div class="mc-label">CPU Usage</div><div class="mc-icon" style="background:rgba(59,130,246,.1);color:var(--blue)">⚡</div></div>
+        <div class="mc-val" id="rs-cpu" style="color:var(--blue)">42%</div>
+        <div class="mc-footer"><span class="mc-trend-neu">across 4 nodes</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-bar" style="background:linear-gradient(to right,var(--purple),rgba(139,92,246,.3))"></div>
+        <div class="mc-top"><div class="mc-label">Storage</div><div class="mc-icon" style="background:rgba(139,92,246,.1);color:var(--purple)">▦</div></div>
+        <div class="mc-val" style="color:var(--purple)">8.2 TB</div>
+        <div class="mc-footer"><span class="mc-trend-neu">of 16 TB allocated</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-bar" style="background:linear-gradient(to right,var(--cyan),rgba(6,182,212,.3))"></div>
+        <div class="mc-top"><div class="mc-label">Query/min</div><div class="mc-icon" style="background:rgba(6,182,212,.1);color:var(--cyan)">◷</div></div>
+        <div class="mc-val" id="rs-qpm" style="color:var(--cyan)">284</div>
+        <div class="mc-footer"><span class="mc-trend-up">▲ 35% improvement</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-bar" style="background:linear-gradient(to right,var(--green),rgba(16,185,129,.3))"></div>
+        <div class="mc-top"><div class="mc-label">Connections</div><div class="mc-icon" style="background:rgba(16,185,129,.1);color:var(--green)">⬡</div></div>
+        <div class="mc-val" style="color:var(--green)">48</div>
+        <div class="mc-footer"><span class="mc-trend-neu">of 500 max</span></div>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">WLM Queues</div>
+        <div id="wlm-queues"></div>
+      </div>
+      <div class="card">
+        <div class="card-title">Cluster Performance</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="rsChart" role="img" aria-label="Redshift CPU and query performance over time"></canvas></div>
+      </div>
+    </div>
+    <div class="card">
+      <div class="card-title">Top Queries by Duration</div>
+      <table class="data-table">
+        <thead><tr><th>Query ID</th><th>User</th><th>Duration</th><th>Rows</th><th>Queue</th><th>Status</th></tr></thead>
+        <tbody id="queries-tbody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- ═══ AIRFLOW PAGE ═══ -->
+  <div class="page" id="page-airflow">
+    <div class="sec-header"><div><div class="sec-title">Airflow DAGs</div><div class="sec-sub">Apache Airflow 2.7 · MWAA · 12 active DAGs</div></div></div>
+    <div class="card">
+      <div class="card-title">DAG Run History — Last 10 runs</div>
+      <div id="dag-list"></div>
+    </div>
+  </div>
+
+  <!-- ═══ LOGS PAGE ═══ -->
+  <div class="page" id="page-logs">
+    <div class="sec-header">
+      <div><div class="sec-title">Pipeline Logs</div><div class="sec-sub">CloudWatch · streaming</div></div>
+      <div class="sec-actions">
+        <select class="env-select" onchange="filterLogs(this.value)">
+          <option>All Levels</option><option>ERROR</option><option>WARN</option><option>INFO</option>
+        </select>
+      </div>
+    </div>
+    <div class="card" style="padding:.75rem 1rem">
+      <div id="log-stream"></div>
+    </div>
+  </div>
+
+  <!-- ═══ COSTS PAGE ═══ -->
+  <div class="page" id="page-costs">
+    <div class="sec-header"><div><div class="sec-title">Cost Monitor</div><div class="sec-sub">AWS monthly spend · data engineering resources</div></div></div>
+    <div class="metrics-row">
+      <div class="metric-card">
+        <div class="mc-bar" style="background:linear-gradient(to right,var(--green),rgba(16,185,129,.3))"></div>
+        <div class="mc-top"><div class="mc-label">MTD Spend</div></div>
+        <div class="mc-val" style="color:var(--green)">$4,820</div>
+        <div class="mc-footer"><span class="mc-trend-up">▼ 18% vs last mo.</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-bar" style="background:linear-gradient(to right,var(--blue),rgba(59,130,246,.3))"></div>
+        <div class="mc-top"><div class="mc-label">Projected</div></div>
+        <div class="mc-val" style="color:var(--blue)">$6,100</div>
+        <div class="mc-footer"><span class="mc-trend-neu">vs $7,400 budget</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-bar" style="background:linear-gradient(to right,var(--amber),rgba(245,158,11,.3))"></div>
+        <div class="mc-top"><div class="mc-label">Savings (IaC)</div></div>
+        <div class="mc-val" style="color:var(--amber)">$1,840</div>
+        <div class="mc-footer"><span class="mc-trend-up">from Terraform automation</span></div>
+      </div>
+      <div class="metric-card">
+        <div class="mc-bar" style="background:linear-gradient(to right,var(--purple),rgba(139,92,246,.3))"></div>
+        <div class="mc-top"><div class="mc-label">Top Service</div></div>
+        <div class="mc-val" style="font-size:1.1rem;color:var(--purple)">Redshift</div>
+        <div class="mc-footer"><span class="mc-trend-neu">$2,210 · 46% of total</span></div>
+      </div>
+    </div>
+    <div class="two-col">
+      <div class="card">
+        <div class="card-title">Spend by Service</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="costChart" role="img" aria-label="AWS cost breakdown by service"></canvas></div>
+      </div>
+      <div class="card">
+        <div class="card-title">30-day Trend</div>
+        <div class="chart-wrap" style="height:200px"><canvas id="costTrendChart" role="img" aria-label="30-day AWS cost trend"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+</main>
+</div>
+
+<script>
+/* ── DATA ── */
+const JOBS = [
+  {name:'api_to_s3_ingest',status:'RUNNING',dur:'4m 12s',dpu:10,records:'2.1M',flow:'REST APIs → S3',last:'now'},
+  {name:'s3_glue_transform',status:'RUNNING',dur:'8m 44s',dpu:20,records:'5.8M',flow:'S3 → Delta Lake',last:'now'},
+  {name:'delta_to_redshift',status:'RUNNING',dur:'3m 01s',dpu:10,records:'4.2M',flow:'Delta Lake → Redshift',last:'now'},
+  {name:'rds_cdc_sync',status:'QUEUED',dur:'—',dpu:4,records:'—',flow:'RDS → S3',last:'2m ago'},
+  {name:'redshift_vacuum',status:'SUCCEEDED',dur:'12m 30s',dpu:2,records:'—',flow:'Redshift Maintenance',last:'1h ago'},
+];
+
+const PIPELINES = [
+  {name:'Customer 360 Pipeline',type:'ETL',sched:'@hourly',status:'RUNNING',dur:'8.2m',sla:'99.8%',last:'4m ago'},
+  {name:'Transactions ELT',type:'ELT',sched:'*/15 * * * *',status:'RUNNING',dur:'3.1m',sla:'99.9%',last:'11m ago'},
+  {name:'Product Analytics',type:'ETL',sched:'@daily',status:'SUCCEEDED',dur:'22.4m',sla:'100%',last:'3h ago'},
+  {name:'RDS CDC Sync',type:'CDC',sched:'@continuous',status:'QUEUED',dur:'1.2m',sla:'99.5%',last:'2m ago'},
+  {name:'Redshift WLM Tune',type:'Maintenance',sched:'@weekly',status:'SUCCEEDED',dur:'12m',sla:'100%',last:'2d ago'},
+  {name:'S3 Lifecycle Purge',type:'Archival',sched:'@daily',status:'SUCCEEDED',dur:'6.8m',sla:'100%',last:'8h ago'},
+];
+
+const QUALITY_CHECKS = [
+  {name:'Null Completeness',pct:99.8,color:'var(--green)'},
+  {name:'Schema Validation',pct:100,color:'var(--green)'},
+  {name:'Referential Integrity',pct:99.1,color:'var(--green)'},
+  {name:'Deduplication',pct:99.6,color:'var(--green)'},
+  {name:'Range / Domain',pct:98.7,color:'var(--amber)'},
+  {name:'Freshness SLA',pct:99.9,color:'var(--green)'},
+];
+
+const RULES = [
+  {rule:'not_null(customer_id)',dataset:'transactions',type:'Completeness',pass:'99.8%',fail:1240,status:'ok'},
+  {rule:'unique(order_id)',dataset:'orders',type:'Uniqueness',pass:'100%',fail:0,status:'ok'},
+  {rule:'ref_check(product_id)',dataset:'line_items',type:'Referential',pass:'99.1%',fail:8820,status:'warn'},
+  {rule:'value_range(amount,0,1e6)',dataset:'transactions',type:'Domain',pass:'98.7%',fail:12400,status:'warn'},
+  {rule:'schema_match(v2.4)',dataset:'all',type:'Schema',pass:'100%',fail:0,status:'ok'},
+  {rule:'freshness(<2h)',dataset:'events',type:'Timeliness',pass:'99.9%',fail:82,status:'ok'},
+];
+
+const WLM_QUEUES = [
+  {name:'High Priority Analytics',pct:72,slots:5,active:3,wait:0,color:'var(--blue)'},
+  {name:'ETL Batch',pct:88,slots:8,active:7,wait:2,color:'var(--amber)'},
+  {name:'Ad-hoc / Interactive',pct:35,slots:4,active:1,wait:0,color:'var(--green)'},
+  {name:'Default Queue',pct:20,slots:5,active:1,wait:0,color:'var(--dim)'},
+];
+
+const QUERIES = [
+  {id:'#4821',user:'glue_svc',dur:'4.2s',rows:'5.8M',queue:'ETL Batch',status:'ok'},
+  {id:'#4820',user:'bi_service',dur:'1.8s',rows:'240K',queue:'High Priority',status:'ok'},
+  {id:'#4819',user:'analytics',dur:'8.4s',rows:'12M',queue:'Ad-hoc',status:'warn'},
+  {id:'#4818',user:'glue_svc',dur:'0.9s',rows:'82K',queue:'ETL Batch',status:'ok'},
+  {id:'#4817',user:'lambda_fn',dur:'0.3s',rows:'1.2K',queue:'Default',status:'ok'},
+];
+
+const DAGS = [
+  {name:'customer_360_hourly',runs:[1,1,1,1,1,1,1,1,1,1],dur:'8m 12s'},
+  {name:'transactions_15min',runs:[1,1,1,1,1,0,1,1,1,1],dur:'3m 04s'},
+  {name:'product_analytics_daily',runs:[1,1,1,1,1,1,1,1,1,1],dur:'22m 18s'},
+  {name:'rds_cdc_sync',runs:[1,1,2,1,1,1,1,1,0,1],dur:'1m 10s'},
+  {name:'s3_lifecycle_archival',runs:[1,1,1,1,1,1,1,1,1,1],dur:'6m 52s'},
+  {name:'redshift_vacuum_weekly',runs:[3,1,1,1,1,1,1,3,1,1],dur:'12m 30s'},
+  {name:'data_quality_monitor',runs:[1,1,1,1,1,1,1,1,1,1],dur:'2m 04s'},
+  {name:'cloudwatch_alerts',runs:[1,1,1,1,0,1,1,1,1,1],dur:'0m 42s'},
+];
+
+const LOGS_DATA = [
+  {t:'12:48:02',l:'INFO',m:'<b>s3_glue_transform</b> — processed 2.1M records in 4.2s'},
+  {t:'12:47:58',l:'INFO',m:'<b>delta_to_redshift</b> — COPY command complete: 4.2M rows'},
+  {t:'12:47:44',l:'WARN',m:'<b>ETL Batch</b> WLM queue at 88% capacity — 2 queries queued'},
+  {t:'12:47:30',l:'INFO',m:'<b>CloudWatch</b> — CPU 42%, IOPS 1840/s, all within threshold'},
+  {t:'12:47:12',l:'INFO',m:'<b>rds_cdc_sync</b> — queued, waiting for ETL Batch slot'},
+  {t:'12:46:55',l:'INFO',m:'<b>api_to_s3_ingest</b> — 1,240 records/s from 3 REST endpoints'},
+  {t:'12:46:40',l:'WARN',m:'<b>quality_check</b> — ref_check(product_id) 8,820 failures (0.9%)'},
+  {t:'12:46:22',l:'INFO',m:'<b>Airflow</b> — DAG customer_360_hourly triggered successfully'},
+  {t:'12:46:08',l:'INFO',m:'<b>Lambda</b> — S3 event trigger fired for <b>raw/events/2024-01-15</b>'},
+  {t:'12:45:50',l:'INFO',m:'<b>Redshift</b> — VACUUM complete, 4 tables reclaimed 1.2 GB'},
+  {t:'12:45:31',l:'ERR',m:'<b>rds_mysql_replica</b> — replication lag 2.4s (threshold: 2s) — auto-healing'},
+  {t:'12:45:10',l:'INFO',m:'<b>Terraform</b> — state refresh complete, no drift detected'},
+];
+
+/* ── RENDER FUNCTIONS ── */
+function statusPill(s) {
+  const map={RUNNING:'run',SUCCEEDED:'ok',FAILED:'err',QUEUED:'off',WARN:'warn'};
+  return `<span class="pill pill-${map[s]||'off'}">${s}</span>`;
+}
+
+function renderJobs() {
+  document.getElementById('jobs-tbody').innerHTML = JOBS.map(j => `
+    <tr>
+      <td style="font-family:var(--mono);font-size:.75rem">${j.name}</td>
+      <td>${statusPill(j.status)}</td>
+      <td style="font-family:var(--mono)">${j.dur}</td>
+      <td>${j.dpu}</td>
+      <td style="font-family:var(--mono)">${j.records}</td>
+      <td style="font-size:.75rem;color:var(--muted)">${j.flow}</td>
+      <td style="color:var(--dim)">${j.last}</td>
+    </tr>`).join('');
+}
+
+function renderPipelines() {
+  document.getElementById('pipelines-tbody').innerHTML = PIPELINES.map(p => `
+    <tr>
+      <td style="font-weight:500">${p.name}</td>
+      <td><span style="font-size:.7rem;background:var(--bg3);border:1px solid var(--border2);padding:.15rem .45rem;border-radius:4px">${p.type}</span></td>
+      <td style="font-family:var(--mono);font-size:.74rem">${p.sched}</td>
+      <td>${statusPill(p.status)}</td>
+      <td style="font-family:var(--mono)">${p.dur}</td>
+      <td style="color:var(--green);font-weight:600;font-family:var(--mono)">${p.sla}</td>
+      <td style="color:var(--dim)">${p.last}</td>
+    </tr>`).join('');
+}
+
+function renderQuality() {
+  document.getElementById('q-checks').innerHTML = QUALITY_CHECKS.map(c => `
+    <div class="q-check">
+      <span class="q-check-name">${c.name}</span>
+      <span class="q-check-val" style="color:${c.color}">${c.pct}%</span>
+    </div>
+    <div class="prog-bar" style="margin-bottom:.4rem"><div class="prog-fill" style="width:${c.pct}%;background:${c.color}"></div></div>
+  `).join('');
+  document.getElementById('rules-tbody').innerHTML = RULES.map(r => `
+    <tr>
+      <td style="font-family:var(--mono);font-size:.74rem">${r.rule}</td>
+      <td style="color:var(--muted)">${r.dataset}</td>
+      <td><span style="font-size:.7rem;background:var(--bg3);border:1px solid var(--border2);padding:.15rem .45rem;border-radius:4px">${r.type}</span></td>
+      <td style="color:var(--green);font-weight:600;font-family:var(--mono)">${r.pass}</td>
+      <td style="font-family:var(--mono);color:${r.fail>0?'var(--amber)':'var(--dim)'}">${r.fail.toLocaleString()}</td>
+      <td>${statusPill(r.status==='ok'?'SUCCEEDED':r.status==='warn'?'WARN':'FAILED')}</td>
+    </tr>`).join('');
+}
+
+function renderWLM() {
+  document.getElementById('wlm-queues').innerHTML = WLM_QUEUES.map(q => `
+    <div class="wlm-queue">
+      <div class="wlm-header">
+        <div class="wlm-name">${q.name}</div>
+        <div class="wlm-stats">
+          <div class="wlm-stat"><b>${q.active}</b>/${q.slots} slots</div>
+          <div class="wlm-stat" style="color:${q.wait>0?'var(--amber)':'var(--muted)'}"><b>${q.wait}</b> waiting</div>
+        </div>
+      </div>
+      <div class="prog-bar"><div class="prog-fill" style="width:${q.pct}%;background:${q.color}"></div></div>
+      <div style="font-size:.67rem;color:var(--muted);margin-top:.25rem">${q.pct}% utilized</div>
+    </div>`).join('');
+}
+
+function renderQueries() {
+  document.getElementById('queries-tbody').innerHTML = QUERIES.map(q => `
+    <tr>
+      <td style="font-family:var(--mono);color:var(--blue)">${q.id}</td>
+      <td style="font-family:var(--mono)">${q.user}</td>
+      <td style="font-family:var(--mono);color:${q.status==='warn'?'var(--amber)':'var(--text)'}">${q.dur}</td>
+      <td style="font-family:var(--mono)">${q.rows}</td>
+      <td style="color:var(--muted)">${q.queue}</td>
+      <td>${statusPill(q.status==='ok'?'SUCCEEDED':'WARN')}</td>
+    </tr>`).join('');
+}
+
+function renderDAGs() {
+  const colors=[,'run-ok','run-warn','run-skip','run-err'];
+  document.getElementById('dag-list').innerHTML = DAGS.map(d => `
+    <div class="dag-row">
+      <div class="dag-name">${d.name}</div>
+      <div class="dag-runs">${d.runs.map(r=>`<div class="run-box ${r===1?'run-ok':r===2?'run-warn':r===0?'run-err':'run-skip'}"></div>`).join('')}</div>
+      <div class="dag-dur">${d.dur}</div>
+      <div>${d.runs[d.runs.length-1]===1?'<span class="pill pill-ok">OK</span>':'<span class="pill pill-warn">WARN</span>'}</div>
+    </div>`).join('');
+}
+
+function renderLogs(filter='All Levels') {
+  const logs = filter==='All Levels' ? LOGS_DATA : LOGS_DATA.filter(l=>l.l===filter);
+  document.getElementById('log-stream').innerHTML = logs.map(l => `
+    <div class="log-entry">
+      <span class="log-time">${l.t}</span>
+      <span class="log-level log-${l.l==='INFO'?'info':l.l==='WARN'?'warn':l.l==='ERR'?'err':'ok'}">${l.l}</span>
+      <span class="log-msg">${l.m}</span>
+    </div>`).join('');
+}
+
+function filterLogs(v){ renderLogs(v); }
+
+/* ── CHARTS ── */
+function makeChart(id, type, labels, datasets, opts={}) {
+  const el = document.getElementById(id);
+  if(!el) return;
+  if(el._chart) el._chart.destroy();
+  const ch = new Chart(el, {
+    type,
+    data:{labels,datasets},
+    options:{
+      responsive:true,maintainAspectRatio:false,
+      plugins:{legend:{display:false},...(opts.plugins||{})},
+      scales:opts.scales||{},
+      ...opts.extra
+    }
+  });
+  el._chart = ch;
+  return ch;
+}
+
+function buildCharts() {
+  const hrs = Array.from({length:24},(_,i)=>`${(i).toString().padStart(2,'0')}:00`);
+  const throughput = [4200,3900,4100,4800,5200,5100,4900,5400,5800,6000,5900,6100,5800,6200,6400,6300,6500,6284,6100,6400,6200,6500,6284,6300];
+  makeChart('throughputChart','line',hrs,[{
+    data:throughput,borderColor:'#3b82f6',borderWidth:2,fill:true,
+    backgroundColor:'rgba(59,130,246,.08)',pointRadius:0,tension:.4
+  }],{scales:{x:{ticks:{font:{size:10},color:'#64748b',maxTicksLimit:8},grid:{color:'rgba(255,255,255,.04)'}},y:{ticks:{font:{size:10},color:'#64748b'},grid:{color:'rgba(255,255,255,.04)'}}}});
+
+  const days=['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  makeChart('runsChart','bar',days,[
+    {label:'Success',data:[42,38,45,41,47,28,35],backgroundColor:'rgba(16,185,129,.7)',borderRadius:4},
+    {label:'Failed',data:[1,2,0,1,0,0,1],backgroundColor:'rgba(239,68,68,.6)',borderRadius:4}
+  ],{scales:{x:{ticks:{font:{size:10},color:'#64748b'},grid:{display:false}},y:{ticks:{font:{size:10},color:'#64748b'},grid:{color:'rgba(255,255,255,.04)'}}},extra:{barPercentage:.7}});
+
+  const qdays = Array.from({length:14},(_,i)=>{const d=new Date();d.setDate(d.getDate()-13+i);return (d.getMonth()+1)+'/'+(d.getDate())});
+  makeChart('qualityChart','line',qdays,[{
+    data:[99.1,99.2,99.0,99.3,99.4,99.2,99.5,99.3,99.4,99.5,99.3,99.4,99.5,99.4],
+    borderColor:'#10b981',borderWidth:2,fill:true,backgroundColor:'rgba(16,185,129,.06)',pointRadius:2,tension:.3
+  }],{scales:{x:{ticks:{font:{size:10},color:'#64748b'},grid:{display:false}},y:{min:98.5,max:100,ticks:{font:{size:10},color:'#64748b'},grid:{color:'rgba(255,255,255,.04)'}}}});
+
+  const rshrs = Array.from({length:12},(_,i)=>i*2+'h');
+  makeChart('rsChart','line',rshrs,[
+    {label:'CPU %',data:[38,42,45,41,52,48,44,42,40,43,42,42],borderColor:'#3b82f6',borderWidth:2,fill:false,pointRadius:0,tension:.4},
+    {label:'QPM',data:[220,250,280,260,310,290,270,265,275,280,284,284],borderColor:'#06b6d4',borderWidth:2,fill:false,pointRadius:0,tension:.4,yAxisID:'y2'}
+  ],{scales:{x:{ticks:{font:{size:10},color:'#64748b'},grid:{display:false}},y:{ticks:{font:{size:10},color:'#64748b'},grid:{color:'rgba(255,255,255,.04)'}},y2:{position:'right',ticks:{font:{size:10},color:'#64748b'},grid:{display:false}}},extra:{interaction:{mode:'index',intersect:false}}});
+
+  makeChart('costChart','doughnut',
+    ['Redshift','Glue','S3','Lambda','Airflow'],
+    [{data:[2210,1180,680,420,330],backgroundColor:['#8b5cf6','#3b82f6','#10b981','#f59e0b','#06b6d4'],borderWidth:0}],
+    {extra:{cutout:'65%'},plugins:{legend:{display:true,position:'right',labels:{font:{size:11},color:'#64748b',boxWidth:10}}}}
+  );
+
+  const costDays=Array.from({length:30},(_,i)=>i+1);
+  const costVals=costDays.map(d=>Math.round(120+Math.random()*40+(d>15?20:0)));
+  makeChart('costTrendChart','line',costDays,[{
+    data:costVals,borderColor:'#f59e0b',borderWidth:2,fill:true,
+    backgroundColor:'rgba(245,158,11,.08)',pointRadius:0,tension:.4
+  }],{scales:{x:{ticks:{font:{size:10},color:'#64748b'},grid:{display:false}},y:{ticks:{font:{size:10},color:'#64748b',callback:v=>'$'+v},grid:{color:'rgba(255,255,255,.04)'}}}});
+}
+
+/* ── LIVE UPDATES ── */
+function jitter(val, pct=0.03) {
+  return val * (1 + (Math.random()-0.5)*pct*2);
+}
+function formatRPS(v){return v.toLocaleString(undefined,{maximumFractionDigits:0})}
+
+function liveUpdate() {
+  const rps = Math.round(jitter(6284,0.04));
+  document.getElementById('m-rps').textContent = formatRPS(rps);
+  document.getElementById('m-latency').textContent = jitter(2.8,0.05).toFixed(1)+'s';
+  document.getElementById('rs-cpu').textContent = Math.round(jitter(42,0.06))+'%';
+  document.getElementById('rs-qpm').textContent = Math.round(jitter(284,0.05));
+}
+
+/* ── CLOCK ── */
+function updateClock() {
+  const now = new Date();
+  document.getElementById('clock').textContent =
+    now.toLocaleTimeString('en-US',{hour12:false,hour:'2-digit',minute:'2-digit',second:'2-digit'});
+}
+
+/* ── PAGE NAV ── */
+function showPage(id, btn) {
+  document.querySelectorAll('.page').forEach(p=>p.classList.remove('active'));
+  document.querySelectorAll('.sb-btn').forEach(b=>b.classList.remove('active'));
+  document.getElementById('page-'+id).classList.add('active');
+  if(btn) btn.classList.add('active');
+  // lazy build charts when needed
+  if(id==='overview'||id==='quality'||id==='redshift'||id==='costs') {
+    setTimeout(buildCharts,50);
+  }
+}
+
+function switchEnv(env) {
+  document.getElementById('env-label').textContent = env==='prod'?'production':env==='staging'?'staging':'development';
+}
+
+function refreshAll() {
+  liveUpdate();
+  document.getElementById('last-update').textContent = 'just now';
+}
+
+/* ── THEME ── */
+let isDark = true;
+function toggleTheme() {
+  isDark = !isDark;
+  document.body.classList.toggle('light', !isDark);
+  document.getElementById('themeBtn').textContent = isDark ? '☀' : '☾';
+  setTimeout(buildCharts, 50);
+}
+
+/* ── INIT ── */
+renderJobs();
+renderPipelines();
+renderQuality();
+renderWLM();
+renderQueries();
+renderDAGs();
+renderLogs();
+setTimeout(buildCharts, 100);
+setInterval(liveUpdate, 2000);
+setInterval(updateClock, 1000);
+updateClock();
+</script>
+</body>
+</html>
